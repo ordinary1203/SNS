@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SNS Auto Poster</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface-2: #222536;
+      --border: #2e3248;
+      --accent: #6c63ff;
+      --accent-hover: #5a52e0;
+      --text: #e2e4f0;
+      --text-muted: #8b90a8;
+      --twitter: #1d9bf0;
+      --instagram: #e1306c;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* Navbar */
+    .navbar {
+      background: var(--surface) !important;
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1.5rem;
+    }
+    .navbar-brand {
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: var(--accent) !important;
+      letter-spacing: -0.3px;
+    }
+    .navbar-brand i { margin-right: 0.4rem; }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .card-header {
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      border-radius: 12px 12px 0 0 !important;
+      padding: 1rem 1.25rem;
+      font-weight: 600;
+    }
+
+    /* Form controls */
+    .form-control, .form-select {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+    }
+    .form-control:focus, .form-select:focus {
+      background: var(--surface-2);
+      border-color: var(--accent);
+      color: var(--text);
+      box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.2);
+    }
+    .form-control::placeholder { color: var(--text-muted); }
+    textarea.form-control { resize: vertical; min-height: 120px; }
+
+    /* Platform toggles */
+    .platform-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1rem;
+      border-radius: 8px;
+      border: 2px solid var(--border);
+      cursor: pointer;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .platform-toggle:hover { border-color: var(--text-muted); }
+    .platform-toggle.active-twitter { border-color: var(--twitter); background: rgba(29,155,240,0.1); }
+    .platform-toggle.active-instagram { border-color: var(--instagram); background: rgba(225,48,108,0.1); }
+    .platform-toggle input { display: none; }
+    .platform-icon { font-size: 1.2rem; }
+    .platform-icon.twitter { color: var(--twitter); }
+    .platform-icon.instagram { color: var(--instagram); }
+
+    /* Image upload area */
+    .upload-area {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .upload-area:hover, .upload-area.drag-over {
+      border-color: var(--accent);
+      background: rgba(108,99,255,0.05);
+    }
+    .upload-area input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer;
+    }
+    .upload-preview {
+      max-width: 100%; max-height: 200px;
+      border-radius: 8px; margin-top: 0.75rem;
+      object-fit: cover;
+    }
+
+    /* Buttons */
+    .btn-accent {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+    .btn-accent:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
+    .btn-accent:disabled { opacity: 0.6; }
+
+    /* Status badges */
+    .badge-status {
+      border-radius: 6px;
+      font-size: 0.75rem;
+      padding: 0.3em 0.6em;
+      font-weight: 600;
+    }
+    .badge-posted  { background: rgba(34,197,94,0.15);  color: var(--success); }
+    .badge-scheduled { background: rgba(245,158,11,0.15); color: var(--warning); }
+    .badge-failed  { background: rgba(239,68,68,0.15);  color: var(--danger); }
+    .badge-partial { background: rgba(245,158,11,0.15); color: var(--warning); }
+    .badge-pending, .badge-processing {
+      background: rgba(139,144,168,0.15); color: var(--text-muted);
+    }
+
+    /* History table */
+    .history-table {
+      border-collapse: separate;
+      border-spacing: 0;
+      width: 100%;
+    }
+    .history-table thead th {
+      background: var(--surface-2);
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .history-table tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+    .history-table tbody tr:hover { background: var(--surface-2); }
+    .history-table tbody tr:last-child { border-bottom: none; }
+    .history-table td { padding: 0.85rem 1rem; vertical-align: middle; }
+    .content-cell {
+      max-width: 280px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Platform indicators */
+    .platform-badge {
+      display: inline-flex; align-items: center; gap: 0.25rem;
+      font-size: 0.75rem; font-weight: 600;
+      padding: 0.2em 0.55em; border-radius: 5px;
+    }
+    .platform-badge.tw { background: rgba(29,155,240,0.15); color: var(--twitter); }
+    .platform-badge.ig { background: rgba(225,48,108,0.15); color: var(--instagram); }
+
+    /* Char counter */
+    .char-counter {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .char-counter.warn { color: var(--warning); }
+    .char-counter.over { color: var(--danger); }
+
+    /* Toast */
+    .toast-container { z-index: 9999; }
+    .custom-toast {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      min-width: 280px;
+    }
+    .custom-toast.success { border-left: 4px solid var(--success); }
+    .custom-toast.error   { border-left: 4px solid var(--danger); }
+
+    /* Settings modal */
+    .modal-content {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+    }
+    .modal-header { border-bottom: 1px solid var(--border); }
+    .modal-footer { border-top: 1px solid var(--border); }
+    .nav-tabs .nav-link {
+      color: var(--text-muted);
+      border: none;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+    }
+    .nav-tabs .nav-link.active {
+      color: var(--accent);
+      background: transparent;
+      border-bottom-color: var(--accent);
+    }
+    .nav-tabs { border-bottom: 1px solid var(--border); }
+
+    /* Config status dots */
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+    }
+    .status-dot.ok  { background: var(--success); }
+    .status-dot.bad { background: var(--danger); }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-muted);
+    }
+    .empty-state i { font-size: 2.5rem; margin-bottom: 0.75rem; display: block; opacity: 0.4; }
+
+    /* Schedule section */
+    .schedule-section {
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.3s ease, opacity 0.3s ease;
+      opacity: 0;
+    }
+    .schedule-section.open { max-height: 100px; opacity: 1; }
+
+    /* Image thumbnail in table */
+    .thumb { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="#">
+      <i class="bi bi-send-fill"></i>SNS Auto Poster
+    </a>
+    <div class="d-flex align-items-center gap-3">
+      <span id="twitter-status" class="d-flex align-items-center gap-1 small text-muted">
+        <span class="status-dot bad" id="dot-twitter"></span>Twitter
+      </span>
+      <span id="instagram-status" class="d-flex align-items-center gap-1 small text-muted">
+        <span class="status-dot bad" id="dot-instagram"></span>Instagram
+      </span>
+      <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#settingsModal">
+        <i class="bi bi-gear-fill"></i> 設定
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- Toast container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
+
+<!-- Main layout -->
+<div class="container-fluid py-4 px-4">
+  <div class="row g-4">
+
+    <!-- LEFT: New Post Form -->
+    <div class="col-lg-4">
+      <div class="card h-auto">
+        <div class="card-header">
+          <i class="bi bi-plus-circle me-2 text-accent" style="color:var(--accent)"></i>新規投稿
+        </div>
+        <div class="card-body p-4">
+          <form id="postForm" enctype="multipart/form-data">
+
+            <!-- Content -->
+            <div class="mb-3">
+              <label class="form-label small fw-semibold">投稿テキスト <span class="text-danger">*</span></label>
+              <textarea class="form-control" id="content" name="content" rows="5"
+                placeholder="投稿内容を入力してください..." maxlength="280" required></textarea>
+              <div class="d-flex justify-content-end mt-1">
+                <span class="char-counter" id="charCounter">0 / 280</span>
+              </div>
+            </div>
+
+            <!-- Platform selection -->
+            <div class="mb-3">
+              <label class="form-label small fw-semibold">プラットフォーム <span class="text-danger">*</span></label>
+              <div class="d-flex gap-2 flex-wrap">
+                <label class="platform-toggle" id="toggle-twitter">
+                  <input type="checkbox" id="cb-twitter" value="twitter">
+                  <i class="bi bi-twitter-x platform-icon twitter"></i>
+                  <span class="small fw-semibold">Twitter / X</span>
+                </label>
+                <label class="platform-toggle" id="toggle-instagram">
+                  <input type="checkbox" id="cb-instagram" value="instagram">
+                  <i class="bi bi-instagram platform-icon instagram"></i>
+                  <span class="small fw-semibold">Instagram</span>
+                </label>
+              </div>
+              <div class="mt-1 small text-muted" id="ig-note" style="display:none">
+                <i class="bi bi-info-circle"></i> Instagramは画像が必須です。SERVER_BASE_URLが公開アクセス可能である必要があります。
+              </div>
+            </div>
+
+            <!-- Image upload -->
+            <div class="mb-3">
+              <label class="form-label small fw-semibold">画像（任意）</label>
+              <div class="upload-area" id="uploadArea">
+                <input type="file" id="imageInput" name="image" accept="image/jpeg,image/png,image/gif,image/webp">
+                <div id="uploadPlaceholder">
+                  <i class="bi bi-image text-muted" style="font-size:1.5rem"></i>
+                  <p class="mb-0 small text-muted mt-1">クリックまたはドラッグ＆ドロップ</p>
+                  <p class="mb-0" style="font-size:0.75rem; color:var(--text-muted)">JPG, PNG, GIF, WebP</p>
+                </div>
+                <img id="uploadPreview" class="upload-preview d-none" alt="プレビュー">
+                <button type="button" class="btn btn-sm btn-outline-danger mt-2 d-none" id="removeImage">
+                  <i class="bi bi-x-circle"></i> 削除
+                </button>
+              </div>
+            </div>
+
+            <!-- Schedule toggle -->
+            <div class="mb-3">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="scheduleToggle">
+                <label class="form-check-label small fw-semibold" for="scheduleToggle">
+                  <i class="bi bi-clock me-1"></i>スケジュール投稿
+                </label>
+              </div>
+              <div class="schedule-section mt-2" id="scheduleSection">
+                <input type="datetime-local" class="form-control" id="scheduledAt" name="scheduled_at">
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-accent w-100" id="submitBtn">
+              <i class="bi bi-send me-1"></i>投稿する
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Post history -->
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-clock-history me-2" style="color:var(--accent)"></i>投稿履歴</span>
+          <button class="btn btn-sm btn-outline-secondary" id="refreshBtn" title="更新">
+            <i class="bi bi-arrow-clockwise"></i>
+          </button>
+        </div>
+        <div id="historyContainer">
+          <div class="empty-state">
+            <i class="bi bi-inbox"></i>
+            <p class="mb-0">投稿履歴がありません</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal fade" id="settingsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-gear-fill me-2"></i>API設定</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <ul class="nav nav-tabs mb-4" id="settingsTabs">
+          <li class="nav-item">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#twitterTab">
+              <i class="bi bi-twitter-x me-1" style="color:var(--twitter)"></i>Twitter / X
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#instagramTab">
+              <i class="bi bi-instagram me-1" style="color:var(--instagram)"></i>Instagram
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#serverTab">
+              <i class="bi bi-globe me-1"></i>サーバー設定
+            </button>
+          </li>
+        </ul>
+
+        <div class="tab-content" id="settingsTabContent">
+
+          <!-- Twitter tab -->
+          <div class="tab-pane fade show active" id="twitterTab">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label small">API Key</label>
+                <input type="password" class="form-control" id="s_twitter_api_key" placeholder="API Key">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small">API Secret</label>
+                <input type="password" class="form-control" id="s_twitter_api_secret" placeholder="API Secret">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small">Access Token</label>
+                <input type="password" class="form-control" id="s_twitter_access_token" placeholder="Access Token">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small">Access Token Secret</label>
+                <input type="password" class="form-control" id="s_twitter_access_token_secret" placeholder="Access Token Secret">
+              </div>
+              <div class="col-12">
+                <label class="form-label small">Bearer Token（任意）</label>
+                <input type="password" class="form-control" id="s_twitter_bearer_token" placeholder="Bearer Token">
+              </div>
+              <div class="col-12">
+                <a href="https://developer.twitter.com/en/portal/dashboard" target="_blank"
+                   class="small text-decoration-none" style="color:var(--accent)">
+                  <i class="bi bi-box-arrow-up-right me-1"></i>Twitter Developer Portal
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Instagram tab -->
+          <div class="tab-pane fade" id="instagramTab">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label small">Instagram Business User ID</label>
+                <input type="text" class="form-control" id="s_instagram_user_id" placeholder="例: 17841400000000000">
+              </div>
+              <div class="col-12">
+                <label class="form-label small">Access Token（長期トークン）</label>
+                <input type="password" class="form-control" id="s_instagram_access_token" placeholder="Access Token">
+              </div>
+              <div class="col-12 mt-1">
+                <div class="p-3 rounded" style="background:var(--surface-2); border:1px solid var(--border); font-size:0.82rem; color:var(--text-muted)">
+                  <i class="bi bi-info-circle me-1"></i>
+                  InstagramはBusinessまたはCreatorアカウントが必要です。
+                  画像投稿のみ対応（テキストのみ不可）。
+                  SERVER_BASE_URLは公開アクセス可能なURLに設定してください。
+                </div>
+              </div>
+              <div class="col-12">
+                <a href="https://developers.facebook.com/docs/instagram-api" target="_blank"
+                   class="small text-decoration-none" style="color:var(--accent)">
+                  <i class="bi bi-box-arrow-up-right me-1"></i>Meta for Developers
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Server tab -->
+          <div class="tab-pane fade" id="serverTab">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label small">Server Base URL</label>
+                <input type="url" class="form-control" id="s_server_base_url" placeholder="http://localhost:8000">
+                <div class="form-text" style="color:var(--text-muted)">
+                  InstagramへのURL画像配信に使用。ngrokなど公開URLを設定してください。
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="button" class="btn btn-accent" id="saveSettingsBtn">
+          <i class="bi bi-floppy me-1"></i>保存
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let posts = [];
+let refreshInterval = null;
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  setupPlatformToggles();
+  setupCharCounter();
+  setupImageUpload();
+  setupScheduleToggle();
+  setupForm();
+  loadSettings();
+  loadPosts();
+
+  document.getElementById('refreshBtn').addEventListener('click', loadPosts);
+  refreshInterval = setInterval(loadPosts, 15000);
+});
+
+// ─── Platform toggles ─────────────────────────────────────────────────────────
+function setupPlatformToggles() {
+  ['twitter','instagram'].forEach(platform => {
+    const cb = document.getElementById(`cb-${platform}`);
+    const toggle = document.getElementById(`toggle-${platform}`);
+    cb.addEventListener('change', () => {
+      toggle.classList.toggle(`active-${platform}`, cb.checked);
+      if (platform === 'instagram') {
+        document.getElementById('ig-note').style.display = cb.checked ? 'block' : 'none';
+      }
+    });
+  });
+}
+
+function getSelectedPlatforms() {
+  const platforms = [];
+  if (document.getElementById('cb-twitter').checked) platforms.push('twitter');
+  if (document.getElementById('cb-instagram').checked) platforms.push('instagram');
+  return platforms;
+}
+
+// ─── Character counter ────────────────────────────────────────────────────────
+function setupCharCounter() {
+  const textarea = document.getElementById('content');
+  const counter = document.getElementById('charCounter');
+  textarea.addEventListener('input', () => {
+    const len = textarea.value.length;
+    counter.textContent = `${len} / 280`;
+    counter.className = 'char-counter' + (len > 280 ? ' over' : len > 240 ? ' warn' : '');
+  });
+}
+
+// ─── Image upload ─────────────────────────────────────────────────────────────
+function setupImageUpload() {
+  const area = document.getElementById('uploadArea');
+  const input = document.getElementById('imageInput');
+  const preview = document.getElementById('uploadPreview');
+  const placeholder = document.getElementById('uploadPlaceholder');
+  const removeBtn = document.getElementById('removeImage');
+
+  input.addEventListener('change', () => showPreview(input.files[0]));
+
+  area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('drag-over'); });
+  area.addEventListener('dragleave', () => area.classList.remove('drag-over'));
+  area.addEventListener('drop', e => {
+    e.preventDefault();
+    area.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      showPreview(file);
+    }
+  });
+
+  removeBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    input.value = '';
+    preview.classList.add('d-none');
+    placeholder.classList.remove('d-none');
+    removeBtn.classList.add('d-none');
+    preview.src = '';
+  });
+
+  function showPreview(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      preview.src = e.target.result;
+      preview.classList.remove('d-none');
+      placeholder.classList.add('d-none');
+      removeBtn.classList.remove('d-none');
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+// ─── Schedule toggle ──────────────────────────────────────────────────────────
+function setupScheduleToggle() {
+  const toggle = document.getElementById('scheduleToggle');
+  const section = document.getElementById('scheduleSection');
+  toggle.addEventListener('change', () => {
+    section.classList.toggle('open', toggle.checked);
+    if (toggle.checked) {
+      const dt = document.getElementById('scheduledAt');
+      if (!dt.value) {
+        const now = new Date(Date.now() + 30 * 60000);
+        dt.value = now.toISOString().slice(0, 16);
+      }
+    }
+  });
+}
+
+// ─── Form submit ──────────────────────────────────────────────────────────────
+function setupForm() {
+  document.getElementById('postForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const platforms = getSelectedPlatforms();
+    if (!platforms.length) {
+      showToast('プラットフォームを1つ以上選択してください', 'error');
+      return;
+    }
+
+    const content = document.getElementById('content').value.trim();
+    if (!content) { showToast('投稿テキストを入力してください', 'error'); return; }
+
+    const scheduled = document.getElementById('scheduleToggle').checked;
+    const scheduledAt = document.getElementById('scheduledAt').value;
+    if (scheduled && !scheduledAt) {
+      showToast('投稿日時を選択してください', 'error'); return;
+    }
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>投稿中...';
+
+    const fd = new FormData();
+    fd.append('content', content);
+    fd.append('platforms', JSON.stringify(platforms));
+    if (scheduled && scheduledAt) {
+      fd.append('scheduled_at', new Date(scheduledAt).toISOString());
+    }
+    const imageFile = document.getElementById('imageInput').files[0];
+    if (imageFile) fd.append('image', imageFile);
+
+    try {
+      const resp = await fetch('/api/posts', { method: 'POST', body: fd });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.detail || '投稿に失敗しました');
+
+      showToast(
+        data.status === 'scheduled'
+          ? `投稿をスケジュールしました (ID: ${data.id})`
+          : `投稿を送信しました (ID: ${data.id})`,
+        'success'
+      );
+      document.getElementById('postForm').reset();
+      document.getElementById('uploadPreview').classList.add('d-none');
+      document.getElementById('uploadPlaceholder').classList.remove('d-none');
+      document.getElementById('removeImage').classList.add('d-none');
+      document.getElementById('scheduleSection').classList.remove('open');
+      document.getElementById('charCounter').textContent = '0 / 280';
+      ['twitter','instagram'].forEach(p => {
+        document.getElementById(`toggle-${p}`).classList.remove(`active-${p}`);
+      });
+      document.getElementById('ig-note').style.display = 'none';
+      await loadPosts();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-send me-1"></i>投稿する';
+    }
+  });
+}
+
+// ─── Load posts ───────────────────────────────────────────────────────────────
+async function loadPosts() {
+  try {
+    const resp = await fetch('/api/posts');
+    posts = await resp.json();
+    renderHistory();
+  } catch {
+    // silent fail on poll
+  }
+}
+
+function renderHistory() {
+  const container = document.getElementById('historyContainer');
+  if (!posts.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <i class="bi bi-inbox"></i>
+        <p class="mb-0">投稿履歴がありません</p>
+      </div>`;
+    return;
+  }
+
+  const rows = posts.map(p => {
+    const platformBadges = p.platforms.map(pl =>
+      pl === 'twitter'
+        ? `<span class="platform-badge tw"><i class="bi bi-twitter-x"></i>X</span>`
+        : `<span class="platform-badge ig"><i class="bi bi-instagram"></i>IG</span>`
+    ).join(' ');
+
+    const statusBadge = `<span class="badge-status badge-${p.status}">${statusLabel(p.status)}</span>`;
+
+    const imageCell = p.image_path
+      ? `<img src="/${p.image_path}" class="thumb" alt="img">`
+      : `<span class="text-muted small">—</span>`;
+
+    const date = p.scheduled_at
+      ? `<span title="スケジュール: ${formatDate(p.scheduled_at)}"><i class="bi bi-clock me-1" style="color:var(--warning)"></i>${formatDate(p.scheduled_at)}</span>`
+      : formatDate(p.created_at);
+
+    const errorIcon = p.error_message
+      ? `<i class="bi bi-exclamation-circle text-danger ms-1" title="${escHtml(p.error_message)}" style="cursor:pointer"></i>`
+      : '';
+
+    const links = [
+      p.twitter_post_id ? `<a href="https://twitter.com/i/web/status/${p.twitter_post_id}" target="_blank" class="small" style="color:var(--twitter)"><i class="bi bi-box-arrow-up-right"></i></a>` : '',
+    ].filter(Boolean).join(' ');
+
+    return `
+      <tr>
+        <td class="content-cell">
+          <span title="${escHtml(p.content)}">${escHtml(p.content)}</span>
+          ${errorIcon}
+        </td>
+        <td>${imageCell}</td>
+        <td>${platformBadges}</td>
+        <td>${statusBadge}</td>
+        <td class="small text-muted">${date}</td>
+        <td>${links}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deletePost(${p.id})" title="削除">
+            <i class="bi bi-trash3"></i>
+          </button>
+        </td>
+      </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="table-responsive">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>内容</th>
+            <th>画像</th>
+            <th>プラットフォーム</th>
+            <th>ステータス</th>
+            <th>日時</th>
+            <th>リンク</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+async function deletePost(id) {
+  if (!confirm('この投稿を削除しますか？')) return;
+  try {
+    const resp = await fetch(`/api/posts/${id}`, { method: 'DELETE' });
+    if (!resp.ok) throw new Error('削除に失敗しました');
+    showToast('投稿を削除しました', 'success');
+    await loadPosts();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+async function loadSettings() {
+  try {
+    const resp = await fetch('/api/settings');
+    const data = await resp.json();
+
+    document.getElementById('dot-twitter').className = `status-dot ${data.twitter_configured ? 'ok' : 'bad'}`;
+    document.getElementById('dot-instagram').className = `status-dot ${data.instagram_configured ? 'ok' : 'bad'}`;
+
+    document.getElementById('s_twitter_api_key').value = data.twitter_api_key || '';
+    document.getElementById('s_twitter_api_secret').value = data.twitter_api_secret || '';
+    document.getElementById('s_twitter_access_token').value = data.twitter_access_token || '';
+    document.getElementById('s_twitter_access_token_secret').value = data.twitter_access_token_secret || '';
+    document.getElementById('s_twitter_bearer_token').value = data.twitter_bearer_token || '';
+    document.getElementById('s_instagram_user_id').value = data.instagram_user_id || '';
+    document.getElementById('s_instagram_access_token').value = data.instagram_access_token || '';
+    document.getElementById('s_server_base_url').value = data.server_base_url || '';
+  } catch { /* ignore */ }
+}
+
+document.getElementById('saveSettingsBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('saveSettingsBtn');
+  btn.disabled = true;
+  try {
+    const payload = {
+      twitter_api_key: document.getElementById('s_twitter_api_key').value,
+      twitter_api_secret: document.getElementById('s_twitter_api_secret').value,
+      twitter_access_token: document.getElementById('s_twitter_access_token').value,
+      twitter_access_token_secret: document.getElementById('s_twitter_access_token_secret').value,
+      twitter_bearer_token: document.getElementById('s_twitter_bearer_token').value,
+      instagram_user_id: document.getElementById('s_instagram_user_id').value,
+      instagram_access_token: document.getElementById('s_instagram_access_token').value,
+      server_base_url: document.getElementById('s_server_base_url').value,
+    };
+    const resp = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) throw new Error('保存に失敗しました');
+    showToast('設定を保存しました', 'success');
+    bootstrap.Modal.getInstance(document.getElementById('settingsModal')).hide();
+    await loadSettings();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function statusLabel(status) {
+  const map = {
+    posted: '✓ 投稿済み',
+    scheduled: '⏰ スケジュール',
+    failed: '✗ 失敗',
+    partial: '△ 一部成功',
+    pending: '⋯ 待機中',
+    processing: '↻ 処理中',
+  };
+  return map[status] || status;
+}
+
+function formatDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('ja-JP', {
+    month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showToast(message, type = 'success') {
+  const id = `toast_${Date.now()}`;
+  const html = `
+    <div id="${id}" class="toast custom-toast ${type} align-items-center" role="alert">
+      <div class="d-flex">
+        <div class="toast-body d-flex align-items-center gap-2">
+          <i class="bi ${type === 'success' ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger'}"></i>
+          ${escHtml(message)}
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>`;
+  document.getElementById('toastContainer').insertAdjacentHTML('beforeend', html);
+  const toastEl = document.getElementById(id);
+  const toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+  toast.show();
+  toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+}
+</script>
+</body>
+</html>
